@@ -8,11 +8,13 @@ services:
     ports:
       - 7860:7860
     volumes:
+      - ./.data/config.json:/app/config.json
       - ./.data/outputs:/app/stable-diffusion-webui/outputs
       - ./.data/models:/app/stable-diffusion-webui/models
       - ./.data/extensions:/app/stable-diffusion-webui/extensions
       - ./.data/repositories:/app/stable-diffusion-webui/repositories
       - ./.data/cache:/root/.cache
+      - $HOME/.cache/huggingface:/app/hf_download
     command: python launch.py --allow-code --listen --gradio-auth user:pass --api --administrator --disable-tls-verify --xformers --reinstall-xformers --theme=dark --no-prompt-history --enable-insecure-extension-access
     deploy:
       resources:

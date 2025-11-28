@@ -17,11 +17,7 @@ RUN apt update -y && \
     apt update -y && \
     apt install -y --no-install-recommends python3.10-venv
 
-COPY . /app/stable-diffusion-webui
 WORKDIR /app/stable-diffusion-webui
-
-EXPOSE 7860
-
 RUN echo 'venv_dir=/venv' > webui-user.sh
 
 ENV install_dir=/
@@ -33,6 +29,9 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN . /venv/bin/activate && \
     pip install -U xformers --index-url https://download.pytorch.org/whl/cu121
 
+COPY . /app/stable-diffusion-webui
+
+EXPOSE 7860
 VOLUME /root/.cache
 
 CMD ["python3", "launch.py", "--listen"]
