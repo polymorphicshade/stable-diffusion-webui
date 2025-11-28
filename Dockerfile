@@ -14,10 +14,6 @@ RUN apt update && \
 USER sduser
 WORKDIR /app
 
-# RUN git clone -b master https://github.com/AUTOMATIC1111/stable-diffusion-webui.git stable-diffusion-webui && \
-#     cd stable-diffusion-webui && \
-#     ./webui.sh -h
-
 COPY . .
 
 RUN ./webui.sh -h
@@ -37,7 +33,6 @@ ENV LD_PRELOAD=/usr/local/cuda-12.1/targets/x86_64-linux/lib/libcusparse.so.12
 ENV PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.9,max_split_size_mb:512
 
 ENTRYPOINT ["/app/entrypoint.sh", "--update-check", "--xformers", "--listen", "--port", "7860"]
-
 
 FROM minimal as full
 
