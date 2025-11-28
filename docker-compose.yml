@@ -10,7 +10,6 @@ services:
     ports:
       - 7860:7860
     volumes:
-      - ${PWD}/.data/config.json:/app/config.json
       - ./.data/inputs:/app/inputs
       - ./.data/textual_inversion_templates:/app/textual_inversion_templates
       - ./.data/embeddings:/app/embeddings
