@@ -20,7 +20,7 @@ WORKDIR /app
 
 COPY . /app/stable-diffusion-webui
 
-RUN cd stable-diffusion-webui && \
+RUN cd /app/stable-diffusion-webui && \
     ./webui.sh -h
 
 WORKDIR /app/stable-diffusion-webui
