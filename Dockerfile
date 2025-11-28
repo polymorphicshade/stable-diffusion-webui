@@ -36,6 +36,6 @@ ENTRYPOINT ["/app/entrypoint.sh", "--update-check", "--xformers", "--listen", "-
 
 FROM minimal as full
 
-RUN cd /app/stable-diffusion-webui && \
+RUN cd /app && \
     touch install.log && \
     timeout 2h bash -c "./webui.sh --skip-torch-cuda-test --no-download-sd-model --exit"
