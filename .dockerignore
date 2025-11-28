@@ -1,0 +1,28 @@
+# Ignore generated output files (these change constantly)
+output/
+log/
+tmp/
+embeddings/
+loras/
+models/
+
+# Ignore files/folders that change during development, but are not the core app files
+.git
+.gitignore
+.venv/
+__pycache__/
+
+# Ignore any large checkpoint files you may have locally
+*.ckpt
+*.safetensors
+*.pt
+
+# Custom
+.data/
+docker-compose.yml
+*.env
+cert.sh
+logs.sh
+start.sh
+stop.sh
+urls.sh
