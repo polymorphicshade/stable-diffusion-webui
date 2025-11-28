@@ -18,8 +18,9 @@ WORKDIR /app
 #     cd stable-diffusion-webui && \
 #     ./webui.sh -h
 
-RUN COPY . stable-diffusion-webui && \
-    cd stable-diffusion-webui && \
+COPY . stable-diffusion-webui
+
+RUN cd stable-diffusion-webui && \
     ./webui.sh -h
 
 WORKDIR /app/stable-diffusion-webui
