@@ -16,7 +16,7 @@ WORKDIR /app
 
 COPY . /app/stable-diffusion-webui
 
-COPY webui.sh /app/webui.sh
+COPY ./webui.sh /app/webui.sh
 
 RUN ./webui.sh -h
 
