@@ -4,12 +4,11 @@ services:
     build:
      context: .
      dockerfile: Dockerfile
-    # image: universonic/stable-diffusion-webui:minimal
     command: --no-half --no-half-vae --precision full
     runtime: nvidia
     restart: unless-stopped
     ports:
-      - 8080:8080
+      - 7860:7860
     volumes:
       - ${PWD}/.data/config.json:/app/config.json
       - ./.data/inputs:/app/inputs

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-pushd /app/stable-diffusion-webui
+pushd /app
 ./webui.sh "$@"
 popd
