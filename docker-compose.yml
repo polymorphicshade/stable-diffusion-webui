@@ -10,13 +10,13 @@ services:
     ports:
       - 7860:7860
     volumes:
-      - ./.data/inputs:/app/inputs
-      - ./.data/textual_inversion_templates:/app/textual_inversion_templates
-      - ./.data/embeddings:/app/embeddings
-      - ./.data/extensions:/app/extensions
-      - ./.data/models:/app/models
-      - ./.data/localizations:/app/localizations
-      - ./.data/outputs:/app/outputs
+      - ./.data/inputs:/app/stable-diffusion-webui/inputs
+      - ./.data/textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates
+      - ./.data/embeddings:/app/stable-diffusion-webui/embeddings
+      - ./.data/extensions:/app/stable-diffusion-webui/extensions
+      - ./.data/models:/app/stable-diffusion-webui/models
+      - ./.data/localizations:/app/stable-diffusion-webui/localizations
+      - ./.data/outputs:/app/stable-diffusion-webui/outputs
     cap_drop:
       - ALL
     cap_add:

@@ -14,18 +14,20 @@ RUN apt update && \
 USER sduser
 WORKDIR /app
 
-COPY . .
+COPY . /app/stable-diffusion-webui
+
+COPY webui.sh /app/webui.sh
 
 RUN ./webui.sh -h
 
-WORKDIR /app
-VOLUME /app/extensions
-VOLUME /app/textual_inversion_templates
-VOLUME /app/embeddings
-VOLUME /app/inputs
-VOLUME /app/models
-VOLUME /app/outputs
-VOLUME /app/localizations
+WORKDIR /app/stable-diffusion-webui
+VOLUME /app/stable-diffusion-webui/extensions
+VOLUME /app/stable-diffusion-webui/textual_inversion_templates
+VOLUME /app/stable-diffusion-webui/embeddings
+VOLUME /app/stable-diffusion-webui/inputs
+VOLUME /app/stable-diffusion-webui/models
+VOLUME /app/stable-diffusion-webui/outputs
+VOLUME /app/stable-diffusion-webui/localizations
 
 EXPOSE 7860
 
@@ -36,6 +38,6 @@ ENTRYPOINT ["/app/entrypoint.sh", "--update-check", "--xformers", "--listen", "-
 
 FROM minimal as full
 
-RUN cd /app && \
+RUN cd /app/stable-diffusion-webui && \
     touch install.log && \
     timeout 2h bash -c "./webui.sh --skip-torch-cuda-test --no-download-sd-model --exit"
