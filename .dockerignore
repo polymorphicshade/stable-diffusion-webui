@@ -1,28 +1,61 @@
 # Ignore generated output files (these change constantly)
 output/
+outputs/
 log/
+logs/
 tmp/
 embeddings/
 loras/
 models/
+interrogate/
+config_states/
+
+# Build artifacts that must never leak into the image -- the venv is built at
+# /app/venv and repositories/ is cloned during the build. Copying host copies in
+# would shadow them with (probably Windows/host-arch) junk.
+venv/
+.venv/
+repositories/
+node_modules/
+__pycache__/
+*.pyc
 
 # Ignore files/folders that change during development, but are not the core app files
 .git
+.github
 .gitignore
-.venv/
-__pycache__/
+.idea
+.vscode
 
 # Ignore any large checkpoint files you may have locally
 *.ckpt
 *.safetensors
 *.pt
+*.pth
+
+# Local user config that would override container behaviour
+webui-user.sh
+config.json
+ui-config.json
+styles.csv
+cache.json*
 
 # Custom
 .data/
+.cache/
+Dockerfile
 docker-compose.yml
 *.env
 cert.sh
 logs.sh
 start.sh
 stop.sh
+restart.sh
 urls.sh
+
+# ...but these two are app assets, not user data: without them the webui
+# re-downloads the latent previewer and karlo stats on every fresh container.
+!models/VAE-approx
+!models/VAE-approx/model.pt
+!models/karlo
+!models/karlo/ViT-L-14_stats.th

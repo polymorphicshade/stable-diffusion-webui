@@ -2,21 +2,32 @@ services:
   stable-diffusion-webui:
     container_name: "framepack-studio"
     build:
-     context: .
-     dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile
+      # Uncomment to move the whole CUDA/torch stack forward. See the header
+      # comment in the Dockerfile -- these three must be bumped together.
+      # args:
+      #   CUDA_IMAGE: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      #   TORCH_COMMAND: "pip install torch==2.6.0 torchvision==0.21.0 --extra-index-url https://download.pytorch.org/whl/cu124"
+      #   XFORMERS_PACKAGE: xformers==0.0.29.post3
+    # Appended to the ENTRYPOINT flags (--data-dir /data --listen --port 7860 --xformers).
     command: --no-half --no-half-vae --precision full
     runtime: nvidia
     restart: unless-stopped
     ports:
       - 7860:7860
+    # /dev/shm defaults to 64MB in containers, which torch dataloaders and the
+    # interrogators can exhaust.
+    shm_size: "2gb"
     volumes:
-      - ./.data/inputs:/app/stable-diffusion-webui/inputs
-      - ./.data/textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates
-      - ./.data/embeddings:/app/stable-diffusion-webui/embeddings
-      - ./.data/extensions:/app/stable-diffusion-webui/extensions
-      - ./.data/models:/app/stable-diffusion-webui/models
-      - ./.data/localizations:/app/stable-diffusion-webui/localizations
-      - ./.data/outputs:/app/stable-diffusion-webui/outputs
+      # Single --data-dir mount. Everything the webui writes or downloads lives
+      # here: models/, extensions/, embeddings/, outputs/, inputs/, config.json,
+      # ui-config.json, styles.csv, cache.json.
+      - ./.data:/data
+      # HuggingFace / torch.hub / CLIP download caches. A named volume so it is
+      # seeded with the image's ownership -- without this the CLIP text encoder
+      # (~2GB) is re-downloaded every time the container is recreated.
+      - sd-cache:/app/.cache
     cap_drop:
       - ALL
     cap_add:
@@ -33,3 +44,6 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+
+volumes:
+  sd-cache:
