@@ -1,0 +1,115 @@
+# syntax=docker/dockerfile:1
+#
+# Stable Diffusion WebUI - CUDA image.
+#
+# Everything expensive (torch, python deps, the pinned `repositories/` clones) is
+# baked into the image at build time, so container start is just "run launch.py".
+# `prepare_environment()` in modules/launch_utils.py still runs at startup, but it
+# finds every requirement already satisfied and exits in a couple of seconds.
+#
+# All user data (models, outputs, extensions, embeddings, config) lives under
+# /data via --data-dir, so it survives image rebuilds.
+
+ARG CUDA_IMAGE=nvidia/cuda:12.1.1-runtime-ubuntu22.04
+FROM ${CUDA_IMAGE}
+
+# Keep these in sync with modules/launch_utils.py:prepare_environment().
+# If they ever drift, launch.py will fetch/checkout the correct commit at startup,
+# so the image self-heals - it just costs a slower first boot.
+ARG TORCH_VERSION=2.1.2
+ARG TORCHVISION_VERSION=0.16.2
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu121
+ARG XFORMERS_PACKAGE=xformers==0.0.23.post1
+ARG CLIP_PACKAGE=https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip
+
+ARG ASSETS_COMMIT_HASH=6f7db241d2f8ba7457bac5ca9753331f0c266917
+ARG STABLE_DIFFUSION_COMMIT_HASH=cf1d67a6fd5ea1aa600c4df58e5b47da45f6bdbf
+ARG STABLE_DIFFUSION_XL_COMMIT_HASH=45c443b316737a4ab6e40413d7794a7f5657c19f
+ARG K_DIFFUSION_COMMIT_HASH=ab527a9a6d347f364e3d185ba6d714e22d80cb3c
+ARG BLIP_COMMIT_HASH=48211a1594f1321b00f14c9f7a5b4813144b2fb9
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore \
+    GRADIO_ANALYTICS_ENABLED=False \
+    SD_DATA_DIR=/data
+
+# ---------------------------------------------------------------------------
+# System packages
+# ---------------------------------------------------------------------------
+# Ubuntu 22.04 already ships Python 3.10, which is what the WebUI wants.
+# build-essential + python3.10-dev are kept so extensions with native bits can
+# build their own wheels without a rebuild of this image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        git \
+        libgl1 \
+        libglib2.0-0 \
+        libgomp1 \
+        libgoogle-perftools4 \
+        libtcmalloc-minimal4 \
+        python3.10 \
+        python3.10-dev \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.10 /usr/local/bin/python \
+    && ln -sf /usr/bin/python3.10 /usr/local/bin/python3 \
+    && git config --global --add safe.directory '*'
+
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python -m pip install --upgrade pip wheel
+
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# Python dependencies - ordered cheapest-to-invalidate last
+# ---------------------------------------------------------------------------
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python -m pip install \
+        "torch==${TORCH_VERSION}" "torchvision==${TORCHVISION_VERSION}" \
+        --extra-index-url "${TORCH_INDEX_URL}"
+
+# --no-deps mirrors what launch.py does; xformers would otherwise try to move torch.
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python -m pip install --no-deps "${XFORMERS_PACKAGE}"
+
+COPY requirements_versions.txt /app/requirements_versions.txt
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python -m pip install -r /app/requirements_versions.txt
+
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python -m pip install "${CLIP_PACKAGE}"
+
+# ---------------------------------------------------------------------------
+# Pinned source repositories the WebUI expects in ./repositories
+# ---------------------------------------------------------------------------
+# Partial clones: full history is reachable (launch.py runs `git rev-parse HEAD`)
+# but blobs are fetched lazily, keeping this layer small.
+RUN set -eux; \
+    mkdir -p /app/repositories; \
+    clone() { git clone --filter=blob:none --config core.filemode=false "$1" "$2"; git -C "$2" checkout -q "$3"; }; \
+    clone https://github.com/AUTOMATIC1111/stable-diffusion-webui-assets.git /app/repositories/stable-diffusion-webui-assets "${ASSETS_COMMIT_HASH}"; \
+    clone https://github.com/Stability-AI/stablediffusion.git               /app/repositories/stable-diffusion-stability-ai "${STABLE_DIFFUSION_COMMIT_HASH}"; \
+    clone https://github.com/Stability-AI/generative-models.git             /app/repositories/generative-models "${STABLE_DIFFUSION_XL_COMMIT_HASH}"; \
+    clone https://github.com/crowsonkb/k-diffusion.git                      /app/repositories/k-diffusion "${K_DIFFUSION_COMMIT_HASH}"; \
+    clone https://github.com/salesforce/BLIP.git                            /app/repositories/BLIP "${BLIP_COMMIT_HASH}"
+
+# ---------------------------------------------------------------------------
+# Application code - last, so edits only rebuild this layer
+# ---------------------------------------------------------------------------
+COPY . /app
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 7860
+
+# Needed when the base image isn't an nvidia/cuda one; harmless otherwise.
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["python", "launch.py", "--data-dir", "/data", "--listen", "--port", "7860"]

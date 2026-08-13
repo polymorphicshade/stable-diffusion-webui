@@ -1,0 +1,59 @@
+name: stable-diffusion-webui
+
+services:
+  webui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stable-diffusion-webui:local
+    container_name: stable-diffusion-webui
+    restart: unless-stopped
+
+    ports:
+      - "${WEBUI_PORT:-7860}:7860"
+
+    env_file:
+      - .env
+
+    volumes:
+      # Everything you care about: models, outputs, extensions, embeddings,
+      # config.json, ui-config.json, styles.csv. Drop checkpoints straight into
+      # ./data/models/Stable-diffusion from Explorer.
+      - ./data:/data
+      # Pre-populated from the image on first run, then persisted so the pinned
+      # repos are never re-cloned.
+      - sd-repositories:/app/repositories
+      - sd-config-states:/app/config_states
+      # pip / HuggingFace / CLIP downloads.
+      - sd-cache:/root/.cache
+
+    # For local iteration, mount the source over the image copy so code edits
+    # need only a container restart instead of a rebuild:
+    #   - ./modules:/app/modules
+    #   - ./scripts:/app/scripts
+    #   - ./extensions-builtin:/app/extensions-builtin
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # PyTorch is unhappy with the 64MB default.
+    shm_size: "2gb"
+    stop_grace_period: 30s
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:7860/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # First boot may download a model; don't flap while that happens.
+      start_period: 600s
+
+volumes:
+  sd-repositories:
+  sd-config-states:
+  sd-cache:

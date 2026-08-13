@@ -1,0 +1,48 @@
+# Keep the build context small - it is sent to the daemon on every build.
+.git
+.github
+.idea
+.vscode
+
+# Persistent data lives in volumes, never in the image.
+data/
+.data/
+outputs/
+log/
+tmp/
+cache/
+config_states/
+repositories/
+venv/
+node_modules/
+
+# Model weights - these come from ./data at runtime.
+*.ckpt
+*.safetensors
+*.pth
+*.bin
+*.onnx
+
+# User-installed extensions come from ./data/extensions.
+extensions/*
+!extensions/*.txt
+
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.coverage*
+test/stdout.txt
+test/stderr.txt
+test/test_outputs/
+
+.env
+config.json
+ui-config.json
+cache.json*
+params.txt
+styles.csv*
+user.css
+sysinfo-*.json
+screenshot.png
+webui-user.bat
+webui.settings.bat
