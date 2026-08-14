@@ -36,11 +36,54 @@ docker compose restart
 `docker compose down -v` wipes them, which would force the pinned `repositories/`
 clones and the HuggingFace cache to be fetched again.
 
+## HTTPS
+
+`docker compose up -d` starts an nginx container alongside the WebUI. On first
+boot it generates a self-signed certificate into `./certs` and serves the UI at
+<https://localhost:8443>. Nothing to configure.
+
+Your browser will warn about the certificate — expected, it's self-signed. Accept
+the exception once. To silence it permanently, import `certs/fullchain.pem` into
+your OS trust store, or drop a CA-issued `fullchain.pem` + `privkey.pem` into
+`./certs` and `docker compose restart nginx` — the entrypoint leaves existing
+files alone.
+
+If you reach the box by hostname or LAN IP rather than `localhost`, add it to
+`TLS_SAN` in `.env` before first boot (browsers reject a cert whose SAN doesn't
+match, even one you've accepted). To regenerate after changing it:
+
+```bash
+rm -rf certs && docker compose restart nginx
+```
+
+The WebUI's own port is now bound to `127.0.0.1`, so nginx is the only way in
+from another machine. TLS stops at nginx; the hop to the WebUI is plain HTTP over
+the internal compose network.
+
+> HTTPS encrypts the connection — it does not add access control. Anything that
+> can reach the port can drive the UI, and `--enable-insecure-extension-access`
+> is on by default. Add `--gradio-auth user:pass` to `COMMANDLINE_ARGS` before
+> exposing this beyond your own machine.
+
+### Putting something else behind its own nginx
+
+Each stack runs its own proxy on its own port; they share nothing but the host.
+In the other project's compose file, reuse this one's `nginx` service block and
+change three things:
+
+1. `HTTPS_PORT` — pick a free port, e.g. `9443`
+2. `NGINX_CONF` — point at a copy of `docker/nginx/nginx.conf`
+3. `proxy_pass` in that copy — your service's compose name and port
+
+The `container_name` and `image` also need to differ, since both are global to
+the Docker daemon rather than scoped to the compose project.
+
 ## Where things live
 
 | Path in container      | Host                | Contents |
 | ---------------------- | ------------------- | -------- |
 | `/data`                | `./data`            | models, outputs, extensions, embeddings, `config.json`, `ui-config.json`, `styles.csv` |
+| `/etc/nginx/certs`     | `./certs`           | TLS certificate and private key |
 | `/app/repositories`    | `sd-repositories`   | the five pinned upstream repos, baked into the image |
 | `/app/config_states`   | `sd-config-states`  | extension config snapshots |
 | `/root/.cache`         | `sd-cache`          | HuggingFace / CLIP / pip downloads |

@@ -41,5 +41,6 @@ notification.mp3
 /test/test_outputs
 /cache
 /data
+/certs
 trace.json
 /sysinfo-????-??-??-??-??.json

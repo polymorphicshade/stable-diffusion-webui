@@ -1,6 +1,8 @@
 # These are consumed inside Linux containers; CRLF breaks the shebang and leaks
 # stray \r into env var values.
 docker/*.sh text eol=lf
+docker/nginx/*.sh text eol=lf
+docker/nginx/nginx.conf text eol=lf
 docker/constraints.txt text eol=lf
 *.sh text eol=lf
 .env text eol=lf
