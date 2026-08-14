@@ -112,6 +112,24 @@ crash-looping, so a `docker compose restart` should clear it. If it keeps coming
 back, an extension is forcing the upgrade with `--no-deps` or similar; check
 `docker compose logs | grep -i setuptools`.
 
+**`could not read Username for 'https://github.com'` during build** — git's way of
+saying a repo returned 404/401, and it fell back to asking for credentials. It is
+almost never an auth problem on your side. `Stability-AI/stablediffusion` was
+deleted from GitHub in 2026 ([upstream issue #17204][17204]), so the `Dockerfile`
+clones `w-e-w/stablediffusion` instead — the maintainer fork upstream's dev branch
+moved to, carrying the identical pinned commit. If another of the five repos goes
+the same way, override its `*_REPO` build arg rather than editing the `RUN` block:
+
+```bash
+docker compose build --build-arg K_DIFFUSION_REPO=https://github.com/someone/k-diffusion.git
+```
+
+The same override works at runtime via `.env`, because these ARG names match the
+env vars `modules/launch_utils.py` reads. `GIT_TERMINAL_PROMPT=0` is set so a
+future breakage reports "repository not found" instead of the credential prompt.
+
+[17204]: https://github.com/AUTOMATIC1111/stable-diffusion-webui/issues/17204
+
 **`Torch is not able to use GPU`** — the container can't see the GPU. Check
 `docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi`. To
 run on CPU anyway, add `--skip-torch-cuda-test --use-cpu all --precision full

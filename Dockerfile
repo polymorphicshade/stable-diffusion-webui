@@ -28,6 +28,19 @@ ARG STABLE_DIFFUSION_XL_COMMIT_HASH=45c443b316737a4ab6e40413d7794a7f5657c19f
 ARG K_DIFFUSION_COMMIT_HASH=ab527a9a6d347f364e3d185ba6d714e22d80cb3c
 ARG BLIP_COMMIT_HASH=48211a1594f1321b00f14c9f7a5b4813144b2fb9
 
+# These ARG names deliberately match the env vars launch_utils.py honours, so the
+# same override works at build time and at runtime.
+#
+# STABLE_DIFFUSION_REPO does NOT match launch_utils.py: Stability-AI/stablediffusion
+# was pulled from GitHub and now 404s, which breaks every fresh install (upstream
+# issue #17204). This is the maintainer's fork that upstream's dev branch moved to;
+# it carries the identical commit STABLE_DIFFUSION_COMMIT_HASH pins.
+ARG ASSETS_REPO=https://github.com/AUTOMATIC1111/stable-diffusion-webui-assets.git
+ARG STABLE_DIFFUSION_REPO=https://github.com/w-e-w/stablediffusion.git
+ARG STABLE_DIFFUSION_XL_REPO=https://github.com/Stability-AI/generative-models.git
+ARG K_DIFFUSION_REPO=https://github.com/crowsonkb/k-diffusion.git
+ARG BLIP_REPO=https://github.com/salesforce/BLIP.git
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -104,14 +117,29 @@ RUN python -c "import pkg_resources, setuptools, torch, wheel; \
 # ---------------------------------------------------------------------------
 # Partial clones: full history is reachable (launch.py runs `git rev-parse HEAD`)
 # but blobs are fetched lazily, keeping this layer small.
+#
+# GIT_TERMINAL_PROMPT=0 matters here: a deleted or private repo makes git ask for
+# a username, which surfaces as the useless "could not read Username for
+# 'https://github.com': No such device or address" instead of "repository not
+# found". It stays set at runtime for the same reason.
+ENV GIT_TERMINAL_PROMPT=0
+
 RUN set -eux; \
     mkdir -p /app/repositories; \
     clone() { git clone --filter=blob:none --config core.filemode=false "$1" "$2"; git -C "$2" checkout -q "$3"; }; \
-    clone https://github.com/AUTOMATIC1111/stable-diffusion-webui-assets.git /app/repositories/stable-diffusion-webui-assets "${ASSETS_COMMIT_HASH}"; \
-    clone https://github.com/Stability-AI/stablediffusion.git               /app/repositories/stable-diffusion-stability-ai "${STABLE_DIFFUSION_COMMIT_HASH}"; \
-    clone https://github.com/Stability-AI/generative-models.git             /app/repositories/generative-models "${STABLE_DIFFUSION_XL_COMMIT_HASH}"; \
-    clone https://github.com/crowsonkb/k-diffusion.git                      /app/repositories/k-diffusion "${K_DIFFUSION_COMMIT_HASH}"; \
-    clone https://github.com/salesforce/BLIP.git                            /app/repositories/BLIP "${BLIP_COMMIT_HASH}"
+    clone "${ASSETS_REPO}"              /app/repositories/stable-diffusion-webui-assets "${ASSETS_COMMIT_HASH}"; \
+    clone "${STABLE_DIFFUSION_REPO}"    /app/repositories/stable-diffusion-stability-ai "${STABLE_DIFFUSION_COMMIT_HASH}"; \
+    clone "${STABLE_DIFFUSION_XL_REPO}" /app/repositories/generative-models "${STABLE_DIFFUSION_XL_COMMIT_HASH}"; \
+    clone "${K_DIFFUSION_REPO}"         /app/repositories/k-diffusion "${K_DIFFUSION_COMMIT_HASH}"; \
+    clone "${BLIP_REPO}"                /app/repositories/BLIP "${BLIP_COMMIT_HASH}"
+
+# launch.py re-resolves these on every boot. Persist them so a wiped volume or a
+# drifted commit hash can't send it back to the dead upstream URL.
+ENV ASSETS_REPO=${ASSETS_REPO} \
+    STABLE_DIFFUSION_REPO=${STABLE_DIFFUSION_REPO} \
+    STABLE_DIFFUSION_XL_REPO=${STABLE_DIFFUSION_XL_REPO} \
+    K_DIFFUSION_REPO=${K_DIFFUSION_REPO} \
+    BLIP_REPO=${BLIP_REPO}
 
 # ---------------------------------------------------------------------------
 # Application code - last, so edits only rebuild this layer
