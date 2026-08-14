@@ -19,6 +19,16 @@ mkdir -p \
 cp -rn "${APP_DIR}/models/." "${DATA_DIR}/models/" 2>/dev/null || true
 cp -rn "${APP_DIR}/embeddings/." "${DATA_DIR}/embeddings/" 2>/dev/null || true
 
+# An extension's install.py can still pull setuptools forward inside an already
+# running container, and pkg_resources (imported by autocrop.py and by
+# pytorch_lightning) disappears with it -> "ModuleNotFoundError: No module named
+# 'pkg_resources'" on the next boot. Repair the pin instead of crash-looping.
+if ! python -c "import pkg_resources" >/dev/null 2>&1; then
+    pin="$(grep -oE '^setuptools[=<>!~]+[^[:space:]]+' "${APP_DIR}/requirements_versions.txt" 2>/dev/null | head -1 || true)"
+    echo "pkg_resources is missing - restoring ${pin:=setuptools<81}"
+    python -m pip install --no-cache-dir "${pin}"
+fi
+
 # Same allocator swap webui.sh does - noticeably lower RAM growth over a long
 # session. Set NO_TCMALLOC=1 to skip it.
 if [[ -z "${NO_TCMALLOC:-}" && -z "${LD_PRELOAD:-}" ]]; then

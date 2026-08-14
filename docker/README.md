@@ -82,7 +82,35 @@ hash in `modules/launch_utils.py`, rebuild — the matching `ARG` defaults at th
 top of the `Dockerfile` should be updated to match. If they drift, `launch.py`
 fixes it at runtime instead, at the cost of a slow boot.
 
+## Dependency pinning
+
+`docker/constraints.txt` is wired up as `PIP_CONSTRAINT`, so it applies to every
+pip invocation in the container — the image build, `launch.py`'s `run_pip()`, and
+any extension's `install.py`. It holds upper bounds only; exact versions still
+come from `requirements_versions.txt`.
+
+| Bound | Defends against |
+| --- | --- |
+| `setuptools<81` | 81 deprecates and later versions remove `pkg_resources`, which `modules/textual_inversion/autocrop.py` and `pytorch_lightning` import directly |
+| `pip<24.1` | 24.1 began hard-rejecting the loose metadata several of the old pinned packages ship |
+| `wheel<0.45` | 0.45 deprecated `wheel.bdist_wheel`, which some legacy `setup.py` files import |
+
+The build fails fast if this goes wrong — there's an `import pkg_resources` smoke
+check in the `Dockerfile` after the last pip step, so you find out at build time
+rather than at container start.
+
+If some package's *build* backend genuinely needs a newer setuptools, override
+the constraint for that one install rather than removing the file:
+`PIP_CONSTRAINT= pip install thatpackage`.
+
 ## Troubleshooting
+
+**`ModuleNotFoundError: No module named 'pkg_resources'`** — something upgraded
+setuptools past 81, usually an extension's `install.py` running `pip install -U`.
+The entrypoint detects this on boot and reinstalls the pinned version rather than
+crash-looping, so a `docker compose restart` should clear it. If it keeps coming
+back, an extension is forcing the upgrade with `--no-deps` or similar; check
+`docker compose logs | grep -i setuptools`.
 
 **`Torch is not able to use GPU`** — the container can't see the GPU. Check
 `docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi`. To

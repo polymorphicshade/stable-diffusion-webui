@@ -59,8 +59,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -sf /usr/bin/python3.10 /usr/local/bin/python3 \
     && git config --global --add safe.directory '*'
 
+# ---------------------------------------------------------------------------
+# Packaging toolchain
+# ---------------------------------------------------------------------------
+# PIP_CONSTRAINT is honoured by every pip run in this container - image build,
+# launch.py's run_pip(), and extension install.py scripts alike - so nothing can
+# upgrade its way into a broken environment later. Lives in /etc so no volume
+# mount can shadow it. See the file for what each bound is defending against.
+COPY docker/constraints.txt /etc/pip-constraints.txt
+ENV PIP_CONSTRAINT=/etc/pip-constraints.txt
+
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
-    python -m pip install --upgrade pip wheel
+    python -m pip install --upgrade pip setuptools wheel
 
 WORKDIR /app
 
@@ -82,6 +92,12 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
 
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     python -m pip install "${CLIP_PACKAGE}"
+
+# Fail the build here rather than at container start. pkg_resources is imported
+# directly by modules/textual_inversion/autocrop.py and by pytorch_lightning.
+RUN python -c "import pkg_resources, setuptools, torch, wheel; \
+    print('pkg_resources OK | setuptools', setuptools.__version__, \
+          '| wheel', wheel.__version__, '| torch', torch.__version__)"
 
 # ---------------------------------------------------------------------------
 # Pinned source repositories the WebUI expects in ./repositories

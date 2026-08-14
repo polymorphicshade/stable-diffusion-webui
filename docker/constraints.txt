@@ -1,0 +1,25 @@
+# Upper bounds on the packaging toolchain itself.
+#
+# Wired up as PIP_CONSTRAINT in the Dockerfile, so these apply to *every* pip
+# invocation inside the container: the image build, launch.py's run_pip(), and
+# any extension's install.py. An extension running `pip install -U ...` can no
+# longer drag the environment into a broken state.
+#
+# Only upper bounds, never hard pins - exact versions come from
+# requirements_versions.txt, and build-isolation environments still need room to
+# resolve their own build deps.
+
+# setuptools 81 deprecated pkg_resources and later versions remove it, but
+# modules/textual_inversion/autocrop.py imports it directly, as do
+# pytorch_lightning and basicsr. Symptom: ModuleNotFoundError: No module named
+# 'pkg_resources'. requirements_versions.txt pins the exact version (69.5.1);
+# this stops anything from climbing past it later.
+setuptools<81
+
+# pip 24.1 began strictly rejecting the loose/invalid metadata that several of
+# the old pinned packages here still ship, turning installs into hard errors.
+pip<24.1
+
+# wheel 0.45 deprecated wheel.bdist_wheel, which some legacy setup.py files
+# import directly.
+wheel<0.45
